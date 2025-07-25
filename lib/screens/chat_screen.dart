@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
-import '../providers/community_provider.dart';
+import '../providers/chat_provider.dart';
+import '../providers/user_provider.dart';
+import '../models/chat_models.dart';
+import '../widgets/chat_room_list.dart';
+import '../widgets/chat_room_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -10,255 +13,314 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
+class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
+  late TabController _tabController;
+  bool _isInitialized = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _initializeChat();
+  }
+
+  Future<void> _initializeChat() async {
+    final userProvider = context.read<UserProvider>();
+    final chatProvider = context.read<ChatProvider>();
+    
+    if (userProvider.currentUser != null && !_isInitialized) {
+      await chatProvider.connectToChat(
+        userProvider.currentUser!.id,
+        userProvider.currentUser!.name,
+        'demo_token', // In production, use actual JWT token
+      );
+      _isInitialized = true;
+    }
+  }
 
   @override
   void dispose() {
-    _messageController.dispose();
-    _scrollController.dispose();
+    _tabController.dispose();
     super.dispose();
-  }
-
-  void _sendMessage() {
-    if (_messageController.text.trim().isNotEmpty) {
-      context.read<CommunityProvider>().sendMessage(_messageController.text.trim());
-      _messageController.clear();
-      
-      // Scroll to bottom after sending message
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Community Chat'),
+        title: const Text('Chat'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              _showChatInfo(context);
+          Consumer<ChatProvider>(
+            builder: (context, chatProvider, child) {
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      _getConnectionIcon(chatProvider.connectionStatus),
+                      color: _getConnectionColor(chatProvider.connectionStatus),
+                    ),
+                    onPressed: () => _showConnectionInfo(context, chatProvider),
+                  ),
+                  if (chatProvider.getTotalUnreadCount() > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${chatProvider.getTotalUnreadCount()}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => _showChatInfo(context),
+          ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(
+              icon: Icon(Icons.chat_bubble_outline),
+              text: 'Rooms',
+            ),
+            Tab(
+              icon: Icon(Icons.people_outline),
+              text: 'Online',
+            ),
+          ],
+        ),
       ),
-      body: Column(
-        children: [
-          // Chat Guidelines Banner
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            color: Colors.blue[50],
-            child: Row(
-              children: [
-                Icon(Icons.info, color: Colors.blue[700], size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Welcome to the community chat! Please be respectful and help each other learn.',
-                    style: TextStyle(
-                      color: Colors.blue[700],
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
+      body: Consumer<ChatProvider>(
+        builder: (context, chatProvider, child) {
+          if (chatProvider.currentRoom != null) {
+            return ChatRoomScreen(room: chatProvider.currentRoom!);
+          }
+
+          return TabBarView(
+            controller: _tabController,
+            children: [
+              // Chat Rooms Tab
+              const ChatRoomList(),
+              
+              // Online Users Tab
+              _buildOnlineUsersTab(chatProvider),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildOnlineUsersTab(ChatProvider chatProvider) {
+    final onlineUsers = chatProvider.onlineUsers;
+
+    if (onlineUsers.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.people_outline,
+              size: 64,
+              color: Colors.grey,
             ),
-          ),
-
-          // Messages List
-          Expanded(
-            child: Consumer<CommunityProvider>(
-              builder: (context, provider, child) {
-                final messages = provider.messages;
-
-                if (messages.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.chat_bubble_outline,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: 16),
-                        Text(
-                          'No messages yet',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Text(
-                          'Start the conversation!',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final isCurrentUser = message.senderId == '1'; // Current user ID
-                    
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: isCurrentUser 
-                            ? MainAxisAlignment.end 
-                            : MainAxisAlignment.start,
-                        children: [
-                          if (!isCurrentUser) ...[
-                            CircleAvatar(
-                              radius: 16,
-                              backgroundImage: message.senderImageUrl != null
-                                  ? NetworkImage(message.senderImageUrl!)
-                                  : null,
-                              child: message.senderImageUrl == null
-                                  ? Text(message.senderName[0])
-                                  : null,
-                            ),
-                            const SizedBox(width: 8),
-                          ],
-                          
-                          Flexible(
-                            child: Column(
-                              crossAxisAlignment: isCurrentUser 
-                                  ? CrossAxisAlignment.end 
-                                  : CrossAxisAlignment.start,
-                              children: [
-                                if (!isCurrentUser)
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 4),
-                                    child: Text(
-                                      message.senderName,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isCurrentUser 
-                                        ? Theme.of(context).primaryColor
-                                        : Colors.grey[200],
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    message.content,
-                                    style: TextStyle(
-                                      color: isCurrentUser 
-                                          ? Colors.white 
-                                          : Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                                
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    DateFormat('HH:mm').format(message.timestamp),
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      color: Colors.grey[500],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          
-                          if (isCurrentUser) ...[
-                            const SizedBox(width: 8),
-                            CircleAvatar(
-                              radius: 16,
-                              backgroundImage: message.senderImageUrl != null
-                                  ? NetworkImage(message.senderImageUrl!)
-                                  : null,
-                              child: message.senderImageUrl == null
-                                  ? Text(message.senderName[0])
-                                  : null,
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-
-          // Message Input
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border(
-                top: BorderSide(color: Colors.grey[300]!),
+            SizedBox(height: 16),
+            Text(
+              'No users online',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
               ),
             ),
-            child: Row(
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: onlineUsers.length,
+      itemBuilder: (context, index) {
+        final user = onlineUsers[index];
+        return Card(
+          margin: const EdgeInsets.only(bottom: 8),
+          child: ListTile(
+            leading: Stack(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(25),
-                        borderSide: BorderSide.none,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
+                CircleAvatar(
+                  radius: 20,
+                  child: Text(user.userId[0].toUpperCase()),
+                ),
+                if (user.isOnline)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
                     ),
-                    onSubmitted: (_) => _sendMessage(),
-                    textInputAction: TextInputAction.send,
                   ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: Colors.white),
-                    onPressed: _sendMessage,
-                  ),
-                ),
               ],
             ),
+            title: Text('User ${user.userId}'),
+            subtitle: Text(
+              user.isOnline 
+                  ? user.currentRoom != null 
+                      ? 'In ${user.currentRoom}'
+                      : 'Online'
+                  : 'Last seen ${_formatLastSeen(user.lastSeen)}',
+            ),
+            trailing: user.isOnline
+                ? const Icon(Icons.circle, color: Colors.green, size: 12)
+                : const Icon(Icons.circle, color: Colors.grey, size: 12),
+            onTap: () {
+              // TODO: Implement private messaging
+              _showPrivateMessageDialog(context, user);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _getConnectionIcon(ChatConnectionStatus status) {
+    switch (status) {
+      case ChatConnectionStatus.connected:
+        return Icons.wifi;
+      case ChatConnectionStatus.connecting:
+        return Icons.wifi_off;
+      case ChatConnectionStatus.disconnected:
+        return Icons.wifi_off;
+      case ChatConnectionStatus.error:
+        return Icons.error;
+    }
+  }
+
+  Color _getConnectionColor(ChatConnectionStatus status) {
+    switch (status) {
+      case ChatConnectionStatus.connected:
+        return Colors.green;
+      case ChatConnectionStatus.connecting:
+        return Colors.orange;
+      case ChatConnectionStatus.disconnected:
+        return Colors.grey;
+      case ChatConnectionStatus.error:
+        return Colors.red;
+    }
+  }
+
+  String _formatLastSeen(DateTime lastSeen) {
+    final now = DateTime.now();
+    final difference = now.difference(lastSeen);
+
+    if (difference.inMinutes < 1) {
+      return 'just now';
+    } else if (difference.inHours < 1) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inDays < 1) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
+  }
+
+  void _showConnectionInfo(BuildContext context, ChatProvider chatProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Connection Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  _getConnectionIcon(chatProvider.connectionStatus),
+                  color: _getConnectionColor(chatProvider.connectionStatus),
+                ),
+                const SizedBox(width: 8),
+                Text(_getConnectionStatusText(chatProvider.connectionStatus)),
+              ],
+            ),
+            if (chatProvider.connectionError != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Error: ${chatProvider.connectionError}',
+                style: const TextStyle(color: Colors.red),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Text('Online Users: ${chatProvider.onlineUsers.length}'),
+            Text('Total Unread: ${chatProvider.getTotalUnreadCount()}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          if (chatProvider.connectionStatus != ChatConnectionStatus.connected)
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _initializeChat();
+              },
+              child: const Text('Reconnect'),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _getConnectionStatusText(ChatConnectionStatus status) {
+    switch (status) {
+      case ChatConnectionStatus.connected:
+        return 'Connected';
+      case ChatConnectionStatus.connecting:
+        return 'Connecting...';
+      case ChatConnectionStatus.disconnected:
+        return 'Disconnected';
+      case ChatConnectionStatus.error:
+        return 'Connection Error';
+    }
+  }
+
+  void _showPrivateMessageDialog(BuildContext context, UserOnlineStatus user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Message User ${user.userId}'),
+        content: const Text(
+          'Private messaging will be available in the next update!',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -274,11 +336,21 @@ class _ChatScreenState extends State<ChatScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('🎌 Welcome to Japanese Community Chat!'),
+            SizedBox(height: 12),
             Text('• Be respectful to all community members'),
             Text('• Help others learn Japanese and about Japanese culture'),
             Text('• Keep conversations appropriate and family-friendly'),
             Text('• No spam or self-promotion'),
             Text('• Use both Japanese and English to help everyone learn'),
+            Text('• Share files and images to enhance learning'),
+            SizedBox(height: 12),
+            Text('Features:'),
+            Text('• Real-time messaging'),
+            Text('• Multiple chat rooms'),
+            Text('• File and image sharing'),
+            Text('• Message reactions'),
+            Text('• Online status indicators'),
           ],
         ),
         actions: [

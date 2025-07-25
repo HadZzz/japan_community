@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'screens/home_screen.dart';
 import 'screens/community_screen.dart';
 import 'screens/events_screen.dart';
+import 'screens/event_details_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/login_screen.dart';
 import 'providers/user_provider.dart';
 import 'providers/community_provider.dart';
+import 'providers/chat_provider.dart';
+import 'providers/events_provider.dart';
 import 'theme/app_theme.dart';
 import 'models/auth_models.dart';
 
@@ -25,6 +28,8 @@ class JapaneseCommunityApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()..initializeAuth()),
         ChangeNotifierProvider(create: (_) => CommunityProvider()),
+        ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => EventsProvider()),
       ],
       child: Consumer<UserProvider>(
         builder: (context, userProvider, _) {
@@ -121,6 +126,13 @@ GoRouter _createRouter(UserProvider userProvider) {
           GoRoute(
             path: '/profile',
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: '/events/:eventId',
+            builder: (context, state) {
+              final eventId = state.pathParameters['eventId']!;
+              return EventDetailsScreen(eventId: eventId);
+            },
           ),
         ],
       ),

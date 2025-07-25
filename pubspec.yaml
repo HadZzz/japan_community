@@ -60,6 +60,33 @@ dependencies:
   
   # Icons
   font_awesome_flutter: ^10.7.0
+  
+  # WebSocket for real-time chat
+  socket_io_client: ^2.0.3+1
+  
+  # File handling
+  file_picker: ^8.1.2
+  path_provider: ^2.1.4
+  
+  # Notifications
+  flutter_local_notifications: ^17.2.3
+  
+  # Additional UI components
+  emoji_picker_flutter: ^4.3.0
+  flutter_chat_bubble: ^2.0.2
+  
+  # Calendar and Events
+  table_calendar: ^3.1.2
+  syncfusion_flutter_calendar: ^27.1.58
+  
+  # Location Services
+  geolocator: ^13.0.2
+  geocoding: ^3.0.0
+  google_maps_flutter: ^2.9.0
+  
+  # Additional Event Features
+  url_launcher: ^6.3.1
+  share_plus: ^10.1.2
 
 dev_dependencies:
   flutter_test:
