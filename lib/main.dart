@@ -14,8 +14,14 @@ import 'providers/chat_provider.dart';
 import 'providers/events_provider.dart';
 import 'theme/app_theme.dart';
 import 'models/auth_models.dart';
+import 'services/supabase_config.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Supabase
+  await SupabaseConfig.initialize();
+  
   runApp(const JapaneseCommunityApp());
 }
 
