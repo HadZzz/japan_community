@@ -58,18 +58,18 @@ GoRouter _createRouter(UserProvider userProvider) {
                        userProvider.authStatus == AuthStatus.initial;
       final isLoginPage = state.uri.path == '/login';
 
-      // Show loading while checking auth status
+      // Don't redirect while loading to prevent navigation interruption
       if (isLoading) {
-        return null; // Let the current route handle loading
+        return null;
       }
 
-      // Redirect to login if not authenticated and not already on login page
+      // Only redirect if not authenticated and not already on login page
       if (!isLoggedIn && !isLoginPage) {
         return '/login';
       }
 
-      // Redirect to home if logged in and on login page
-      if (isLoggedIn && isLoginPage) {
+      // Only redirect to home if logged in and on login page (after successful login)
+      if (isLoggedIn && isLoginPage && userProvider.authStatus == AuthStatus.authenticated) {
         return '/';
       }
 

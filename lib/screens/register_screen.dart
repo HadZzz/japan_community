@@ -155,6 +155,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _nameController,
                       textInputAction: TextInputAction.next,
                       textCapitalization: TextCapitalization.words,
+                      enabled: !userProvider.isLoading,
                       decoration: InputDecoration(
                         labelText: 'Full Name',
                         hintText: 'Enter your full name',
@@ -180,6 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
+                      enabled: !userProvider.isLoading,
                       decoration: InputDecoration(
                         labelText: 'Email',
                         hintText: 'Enter your email address',
@@ -205,6 +207,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.next,
+                      enabled: !userProvider.isLoading,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         hintText: 'Create a strong password',
@@ -242,6 +245,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       controller: _confirmPasswordController,
                       obscureText: _obscureConfirmPassword,
                       textInputAction: TextInputAction.done,
+                      enabled: !userProvider.isLoading,
                       decoration: InputDecoration(
                         labelText: 'Confirm Password',
                         hintText: 'Re-enter your password',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/user_provider.dart';
+import '../models/auth_models.dart';
 import '../theme/app_theme.dart';
 import 'register_screen.dart';
 
@@ -40,6 +41,83 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Consumer<UserProvider>(
           builder: (context, userProvider, child) {
+            // Prevent navigation during input
+            if (userProvider.authStatus == AuthStatus.loading) {
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const SizedBox(height: 40),
+
+                      // Logo/Header
+                      Column(
+                        children: [
+                          Container(
+                            width: 80,
+                            height: 80,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Icon(
+                              Icons.people,
+                              color: Colors.white,
+                              size: 40,
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          const Text(
+                            'Welcome Back!',
+                            style: TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w300,
+                              color: AppColors.onSurface,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'おかえりなさい！',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: AppColors.onSurfaceVariant,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Sign in to continue to Japanese Community',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: AppColors.onSurfaceVariant,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 48),
+
+                      // Loading indicator during authentication
+                      const Center(
+                        child: Column(
+                          children: [
+                            CircularProgressIndicator(),
+                            SizedBox(height: 16),
+                            Text('Signing in...'),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              );
+            }
+
             return SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Form(
@@ -136,6 +214,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
+                      enabled: !userProvider.isLoading,
                       decoration: InputDecoration(
                         labelText: 'Email',
                         hintText: 'Enter your email address',
@@ -161,6 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       textInputAction: TextInputAction.done,
+                      enabled: !userProvider.isLoading,
                       decoration: InputDecoration(
                         labelText: 'Password',
                         hintText: 'Enter your password',
